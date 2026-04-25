@@ -1,161 +1,108 @@
-### Authors
-Kody Rogers
-Cody Smith
-Nicholas Gouldin
+# Federated Learning Under Adversarial Conditions
 
-### INTRODUCTION
-This project provides a pipeline for downloading, cleaning, and partitioning the PathMNIST dataset
-into client-specific datasets for experiments such as federated learning or distributed training.
-This repository implements a federated learning pipeline using Flower (FLWR) and PyTorch on the PathMNIST dataset.
-It includes dataset preprocessing, client partitioning, server coordination, malicious client simulation 
-(label-flip attacks), and results visualization.
+A federated learning pipeline built with Flower and PyTorch on the PathMNIST dataset. Implements dataset preprocessing, client partitioning, server coordination with PID-based anomaly detection, malicious client simulation via label-flip attacks, and results visualization.
 
+**Authors:** Kody Rogers, Cody Smith, Nicholas Gouldin
 
-### Project Structure
-src/
-  ├── clients_backup/
-  │   └── client_0.pt
-  │   └── ...
-  ├── clients_data/
-  │   └── client_0_images/
-  │       ├── sample_0_label0.png
-  │       ├── sample_0_label1.png 
-  │       ├── ...
-  │       └── sample_0_label8.png
-  │   └── client_1_images/...
-  │   └── client_0.pt
-  │   └── ...
-  │   └── client_19.pt
-  ├── results/
-  │   └── attack/
-  │       ├── attack_avg_train_loss.png
-  │       ├── attack_avg_val_acc.png
-  │       ├── attack_train_loss_client_0.png
-  │       ├── ...
-  │       ├── attack_train_loss_client_19.png
-  │       ├── attack_val_acc_client_0.png
-  │       ├── ...
-  │       ├── attack_val_acc_client_19.png
-  │       ├── per_client_eval.csv
-  │       ├── per_client_train.csv
-  │       └── round_averages.csv
-  │   └── no_attack/
-  │       ├── no_attack_avg_train_loss.png
-  │       ├── no_attack_avg_val_acc.png
-  │       ├── no_attack_train_loss_client_0.png
-  │       ├── ...
-  │       ├── no_attack_train_loss_client_19.png
-  │       ├── no_attack_val_acc_client_0.png
-  │       ├── ...
-  │       ├── no_attack_val_acc_client_19.png
-  │       ├── per_client_eval.csv
-  │       ├── per_client_train.csv
-  │       └── round_averages.csv
-  └── src/
-      ├── clean_data.py
-      ├── clients_fl.py
-      ├── convert_clients.py
-      ├── dataset_model.py
-      ├── launcher.py
-      ├── plot_results.py
-      ├── plot_severity_to_performance.py
-      ├── poison_clients.py
-      ├── restore_clients.py
-      ├── server_fl.py
-      └── utils_logging.py
+## Getting Started
 
-### To Run this Code
-First install the dependencies using 
+```bash
 pip install -r requirements.txt
+```
 
-# Second Step
-run clean_data.py
-usage: python clean_data.py
-This will take a while as it needs to download the data if it isn't provided
-This will also normalize the data and clean it by removing duplicates and blanks
+## Pipeline
 
-# Third Step
-run convert_clients.py
-usage: python clean_data.py
-This will put the data into the client_data folder which will partition it and label the data
+The pipeline runs in five stages. Each stage must complete before starting the next.
 
-# Fourth Step
-run launcher.py
-usage: launcher.py [-h] [--attack] [--rounds ROUNDS] [--epochs EPOCHS] [--clients CLIENTS]
-Notes: poison_clients.py is required to create malicious clients. The launcher does not have a built in option to do this.
-options:
-  -h, --help            show this help message and exit
-  --attack              Enable attack mode
-                        Label-flip fraction
-  --rounds ROUNDS       Number of federated rounds
-  --epochs EPOCHS       Local epochs per client per round
-  --clients CLIENTS     Total number of simulated clients
+### 1. Clean and normalize the dataset
 
-# Fifth Step
-run poison_clients.py and restore_poison.py
-usage: poison_clients.py [-h] --clients CLIENTS [CLIENTS ...] [--flip-rate FLIP_RATE]
+Downloads PathMNIST (if not already present), removes blank images and duplicates, and normalizes pixel values to [0, 1].
 
-Poison federated client data
-options:
-  -h, --help            show this help message and exit
-  --clients CLIENTS [CLIENTS ...]
-                        Client filenames (e.g., client_0.pt client_1.pt)
-  --flip-rate FLIP_RATE
-                        Fraction of samples to flip (0.0–1.0)
+```bash
+python clean_data.py
+```
 
-This will flip the data for labels 1 and 8 saved. at the percentage listed below
-to revert the changes use restore_poison.py
-usage: python restore_poison.py
+### 2. Partition data into client datasets
 
-# Last STEP
-To visualize results use plot_results.py
-usage: plot_results.py [-h] --mode {no_attack,attack}
+Splits the cleaned data into 20 client-specific `.pt` files with labeled image directories.
 
-options:
-  -h, --help            show this help message and exit
-  --mode {no_attack,attack}
+```bash
+python convert_clients.py
+```
 
-## Plotting Attack Severity vs Loss/Accuracy
-Run 4 separate simulations of the previous steps, each simulation running
-poison_clients.py at a specific --flip-rate value:
+### 3. Run federated training
 
-Please run AT LEAST 20 rounds to ensure that the pid system has time to detect the malicious clients
+Launches the Flower server and simulated clients. Use `--attack` to enable PID-based anomaly detection mode.
 
-It is assumed that you delete data in clients_data and use convert_clients.py to produce fresh
-data to poison.
+```bash
+python launcher.py [--attack] [--rounds ROUNDS] [--epochs EPOCHS] [--clients CLIENTS]
+```
 
-### Levels of flipped labels for each attack type:
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--attack` | off | Enable attack mode with PID anomaly detection |
+| `--rounds` | 10 | Number of federated communication rounds |
+| `--epochs` | 5 | Local training epochs per client per round |
+| `--clients` | 20 | Total number of simulated clients |
 
-#### no_attack
-0.00% (baseline)
+### 4. Poison and restore client data
 
-#### attack_low
+Poison specific clients by flipping a fraction of their labels between classes 1 and 8. Restore from backup when done.
 
---flip-rate 0.25
+```bash
+# Poison selected clients
+python poison_clients.py --clients client_0.pt client_1.pt client_2.pt --flip-rate 0.25
 
-3 clients out of 20 poisoned (clients 0-2)
+# Restore all clients to clean state
+python restore_clients.py
+```
 
-(20% of class labels flipped) — subtle poisoning
+### 5. Visualize results
 
-#### attack_med
+```bash
+python plot_results.py --mode {no_attack,attack}
+```
 
---flip-rate 0.35
+## Running the Full Attack Severity Experiment
 
-5 clients out of 20 poisoned (clients 0-4)
+To reproduce the severity comparison charts, run four separate simulations with fresh data each time. Use at least 20 rounds so the PID system has time to detect malicious clients.
 
-(35% of class labels flipped) — noticeable degradation
+For each severity level: restore clean data with `convert_clients.py`, poison the appropriate clients, run `launcher.py --attack`, then plot.
 
-#### attack_high
+| Severity | Clients Poisoned | Flip Rate | Description |
+|----------|-----------------|-----------|-------------|
+| None | 0 / 20 | 0% | Baseline, no attack |
+| Low | 3 / 20 (clients 0-2) | 25% | Subtle poisoning |
+| Medium | 5 / 20 (clients 0-4) | 35% | Noticeable degradation |
+| High | 8 / 20 (clients 0-7) | 60% | Strong degradation |
 
---flip-rate 0.60
+The PID threshold defaults to 2.79, which produced the most consistent anomaly detection results in our experiments.
 
-8 clients out of 20 poisoned (clients 0-7)
+After running all four simulations, generate the comparison charts:
 
-(60% of class labels flipped) — strong degradation
+```bash
+python plot_severity_to_performance.py
+```
 
-Our pid threshold defaults to 2.79, which seems to produce the most consistent anomaly detection results
+## Project Structure
 
-#### Finally: Run plot_severity_to_performance.py. 
-
-A chart giving the differences in accuracy and loss for each attack type will be saved
-
+```
+src/
+├── clients_backup/          # Clean client data backups for restore
+├── clients_data/            # Partitioned client .pt files and labeled images
+├── results/
+│   ├── attack/              # Training/eval CSVs and plots (attack mode)
+│   └── no_attack/           # Training/eval CSVs and plots (baseline)
+└── src/
+    ├── clean_data.py        # Download, clean, normalize PathMNIST
+    ├── convert_clients.py   # Partition dataset into client shards
+    ├── launcher.py          # Flower server/client orchestrator
+    ├── server_fl.py         # Server-side aggregation and PID logic
+    ├── clients_fl.py        # Client-side training loop
+    ├── dataset_model.py     # CNN model and dataset definitions
+    ├── poison_clients.py    # Label-flip attack injection
+    ├── restore_clients.py   # Restore clients from backup
+    ├── plot_results.py      # Per-round training/eval visualizations
+    ├── plot_severity_to_performance.py  # Cross-severity comparison charts
+    └── utils_logging.py     # Logging utilities
+```

@@ -1,0 +1,22 @@
+20 rounds, default settings for launcher.py except the --attack flag
+Levels of flipped labels for each attack type:
+
+no_attack
+0.00% (baseline)
+
+attack_low
+--flip-rate 0.25
+3 clients out of 20 poisoned  (clients 0-2)
+(20% of class labels flipped) — subtle poisoning
+
+attack_med
+--flip-rate 0.35
+5 clients out of 20 poisoned  (clients 0-4)
+(35% of class labels flipped) — noticeable degradation
+
+attack_high
+--flip-rate 0.60
+8 clients out of 20 poisoned  (clients 0-7)
+(60% of class labels flipped) — strong degradation
+
+Our pid threshold defaults to 2.79, which seems to produce the most consistent anomaly detection results

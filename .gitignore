@@ -1,0 +1,12 @@
+clients_data
+__pycache__
+pathmnist_cleaned.npz
+pathmnist.npz
+/clients_backup/client_0.pt
+/clients_backup/client_1.pt
+/clients_backup/client_2.pt
+/clients_backup/client_3.pt
+/clients_backup/client_4.pt
+/clients_backup/client_5.pt
+/clients_backup/client_6.pt
+/clients_backup/client_7.pt
